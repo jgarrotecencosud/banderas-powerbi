@@ -45,7 +45,8 @@ jobs:
                   with urllib.request.urlopen(f"https://flagcdn.com/{code}.svg", timeout=60) as response:
                       original = ET.fromstring(response.read())
               assert original.tag == "{"+NS+"}svg"
-              assert "viewBox" in original.attrib
+              if "viewBox" not in original.attrib:
+                  original.set("viewBox", f'0 0 {float(original.attrib["width"])} {float(original.attrib["height"])}')
               assert not any(e.tag.rsplit("}",1)[-1] in ("script","image","foreignObject") for e in original.iter())
               source = ET.tostring(original)
               original.attrib.update(x="35", y="40", width="30", height="20", preserveAspectRatio="xMidYMid meet")
