@@ -1,0 +1,78 @@
+
+name: Generar banderas SVG
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generar banderas pequeñas
+        run: |
+          python - <<'PY'
+          import urllib.request
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          codigos = """
+          de ag an sa ar au at bd bb be bz mm bo br
+          bg bf kh ca cl cn co cr cu dk dj ec eg sv
+          ae gb-sct si es ee ph fi fr gr gt nl hn
+          hk hu in id gb-eng ie il it jp kr lv lt
+          mg my ma mu mx no nz pk pa py pe pl pt
+          do ro ru sn sg lk za se ch th tw tn tr
+          ua uy us ve vn
+          """.split()
+
+          for codigo in codigos:
+              try:
+                  url = f"https://flagcdn.com/{codigo}.svg"
+                  with urllib.request.urlopen(url) as respuesta:
+                      contenido = respuesta.read()
+
+                  original = ET.fromstring(contenido)
+                  viewbox = original.attrib.get(
+                      "viewBox", "0 0 30 20"
+                  )
+
+                  original.set("x", "35")
+                  original.set("y", "40")
+                  original.set("width", "30")
+                  original.set("height", "20")
+                  original.set("viewBox", viewbox)
+
+                  envoltorio = ET.Element(
+                      "{http://www.w3.org/2000/svg}svg",
+                      {
+                          "width": "100",
+                          "height": "100",
+                          "viewBox": "0 0 100 100"
+                      }
+                  )
+                  envoltorio.append(original)
+
+                  archivo = Path(
+                      f"bandera_{codigo}_mini.svg"
+                  )
+                  ET.ElementTree(envoltorio).write(
+                      archivo,
+                      encoding="utf-8",
+                      xml_declaration=True
+                  )
+                  print("Generada:", archivo)
+              except Exception as e:
+                  print("No disponible:", codigo, e)
+          PY
+
+      - name: Guardar archivos
+        run: |
+          git config user.name "github-actions"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "*.svg"
+          git diff --cached --quiet || (git commit -m "Generar banderas mini" && git push)
