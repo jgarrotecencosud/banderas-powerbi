@@ -1,2 +1,1 @@
-<?xml version='1.0' encoding='utf-8'?>
-<ns0:svg xmlns:ns0="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><ns0:svg width="30" height="20" viewBox="0 0 30 20" x="35" y="40"><ns0:path fill="red" d="M0 0h30v20H0z" /><ns0:path fill="#ffeb00" d="m15 4-3.53 10.85 9.24-6.7H9.29l9.24 6.7z" /></ns0:svg></ns0:svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><svg width="30" height="20" viewBox="0 0 30 20" x="35" y="40" preserveAspectRatio="xMidYMid meet"><path fill="red" d="M0 0h30v20H0z" /><path fill="#ffeb00" d="m15 4-3.53 10.85 9.24-6.7H9.29l9.24 6.7z" /></svg></svg>
