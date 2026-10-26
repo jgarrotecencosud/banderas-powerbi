@@ -1,4 +1,3 @@
-
 name: Generar banderas SVG
 
 on:
@@ -12,67 +11,74 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Generar banderas pequeñas
+      - name: Instalar verificador SVG
+        run: python -m pip install cairosvg Pillow
+      - name: Generar y verificar todas las banderas
         run: |
           python - <<'PY'
-          import urllib.request
+          import csv, io, math, re, urllib.request
           import xml.etree.ElementTree as ET
           from pathlib import Path
-
-          codigos = """
-          de ag an sa ar au at bd bb be bz mm bo br
-          bg bf kh ca cl cn co cr cu dk dj ec eg sv
-          ae gb-sct si es ee ph fi fr gr gt nl hn
-          hk hu in id gb-eng ie il it jp kr lv lt
-          mg my ma mu mx no nz pk pa py pe pl pt
-          do ro ru sn sg lk za se ch th tw tn tr
-          ua uy us ve vn
-          """.split()
-
-          for codigo in codigos:
-              try:
-                  url = f"https://flagcdn.com/{codigo}.svg"
-                  with urllib.request.urlopen(url) as respuesta:
-                      contenido = respuesta.read()
-
-                  original = ET.fromstring(contenido)
-                  viewbox = original.attrib.get(
-                      "viewBox", "0 0 30 20"
-                  )
-
-                  original.set("x", "35")
-                  original.set("y", "40")
-                  original.set("width", "30")
-                  original.set("height", "20")
-                  original.set("viewBox", viewbox)
-
-                  envoltorio = ET.Element(
-                      "{http://www.w3.org/2000/svg}svg",
-                      {
-                          "width": "100",
-                          "height": "100",
-                          "viewBox": "0 0 100 100"
-                      }
-                  )
-                  envoltorio.append(original)
-
-                  archivo = Path(
-                      f"bandera_{codigo}_mini.svg"
-                  )
-                  ET.ElementTree(envoltorio).write(
-                      archivo,
-                      encoding="utf-8",
-                      xml_declaration=True
-                  )
-                  print("Generada:", archivo)
-              except Exception as e:
-                  print("No disponible:", codigo, e)
+          import cairosvg
+          from PIL import Image, ImageDraw
+          NS = "http://www.w3.org/2000/svg"
+          ET.register_namespace("", NS)
+          ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+          rows = [r for r in csv.DictReader(Path("paises_codigos.csv").read_text(encoding="utf-8-sig").splitlines(), delimiter=";") if r["Codigo"]]
+          assert len({r["Codigo"] for r in rows}) == len(rows)
+          dax = Path("Bandera_Mapa_DAX.txt").read_text(encoding="utf-8-sig")
+          canvas = Image.new("RGB", (800, math.ceil(len(rows)/5)*100), "#eeeeee")
+          draw = ImageDraw.Draw(canvas)
+          pending = {}
+          for i, row in enumerate(rows):
+              code = row["Codigo"]
+              assert f'"{row["Pais"]}", "{code}"' in dax, row
+              assert row["Archivo"] == f"bandera_{code}_mini.svg"
+              if code == "an":
+                  original = ET.Element("{"+NS+"}svg", {"viewBox":"0 0 900 600"})
+                  for attrs in [{"width":"900","height":"600","fill":"white"},{"x":"300","width":"300","height":"600","fill":"#dc171d"},{"y":"200","width":"900","height":"200","fill":"#012a87"}]:
+                      ET.SubElement(original, "{"+NS+"}rect", attrs)
+                  for cx, cy in [(390,250),(510,250),(350,320),(550,320),(450,350)]:
+                      points = " ".join(f"{cx+(26 if j%2==0 else 10)*math.cos(-math.pi/2+j*math.pi/5):.4f},{cy+(26 if j%2==0 else 10)*math.sin(-math.pi/2+j*math.pi/5):.4f}" for j in range(10))
+                      ET.SubElement(original, "{"+NS+"}polygon", {"points":points,"fill":"white"})
+              else:
+                  with urllib.request.urlopen(f"https://flagcdn.com/{code}.svg", timeout=60) as response:
+                      original = ET.fromstring(response.read())
+              assert original.tag == "{"+NS+"}svg"
+              assert "viewBox" in original.attrib
+              assert not any(e.tag.rsplit("}",1)[-1] in ("script","image","foreignObject") for e in original.iter())
+              source = ET.tostring(original)
+              original.attrib.update(x="35", y="40", width="30", height="20", preserveAspectRatio="xMidYMid meet")
+              wrapper = ET.Element("{"+NS+"}svg", {"width":"100","height":"100","viewBox":"0 0 100 100"})
+              wrapper.append(original)
+              data = ET.tostring(wrapper, encoding="utf-8")
+              assert data.startswith(b"<svg ") and b"ns0:" not in data
+              ET.fromstring(data)
+              rendered = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=data,output_width=500,output_height=500))).convert("RGBA")
+              bbox = rendered.getbbox()
+              assert bbox and bbox[0]>=174 and bbox[1]>=199 and bbox[2]<=326 and bbox[3]<=301, (code,bbox)
+              # Compare the actual flag against the source rendered in the same 30x20 viewport.
+              original.attrib.pop("x")
+              original.attrib.pop("y")
+              reference = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=ET.tostring(original),output_width=150,output_height=100))).convert("RGBA")
+              assert rendered.crop((175,200,325,300)).tobytes() == reference.tobytes(), code
+              pending[row["Archivo"]] = data
+              thumb = rendered.crop((175,200,325,300))
+              thumb.thumbnail((120,70))
+              x,y = (i%5)*160, (i//5)*100
+              canvas.paste(thumb,(x+20,y+5),thumb)
+              draw.text((x+8,y+79),f'{row["Pais"]} ({code})',fill="black")
+              print("OK:",row["Pais"],code)
+          pending["bandera_chile_mini.svg"] = pending["bandera_cl_mini.svg"]
+          for name,data in pending.items():
+              Path(name).write_bytes(data)
+          canvas.save("verificacion_banderas.png")
+          print(f"Verificadas {len(rows)} banderas y alias Chile.")
+          
           PY
-
-      - name: Guardar archivos
+      - name: Guardar archivos verificados
         run: |
           git config user.name "github-actions"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "*.svg"
-          git diff --cached --quiet || (git commit -m "Generar banderas mini" && git push)
+          git add "*.svg" verificacion_banderas.png
+          git diff --cached --quiet || (git commit -m "Corregir y verificar banderas SVG por pais" && git push)
