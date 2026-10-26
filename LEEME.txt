@@ -1,0 +1,2 @@
+Sube todos los SVG directamente a la raiz del repositorio público jgarrotecencosud/banderas-powerbi. Después usa Bandera_Mapa_DAX.txt.
+ATENCIÓN: salvo Chile, los SVG contienen PNG de emojis de banderas embebidos como data URI. Las imágenes son autocontenidas, pero el marcador Azure Maps puede NO admitir PNG embebido en SVG. PRUEBA primero bandera_de_mini.svg. Algunas banderas lucen onduladas. ANTILLAS HOLANDESAS representa Países Bajos como aproximación porque su bandera histórica no está disponible mediante emoji. SIN INFORMACION se deja vacío.
